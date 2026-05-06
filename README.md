@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://www.puce.edu.ec/wp-content/uploads/2025/12/logos_79an%CC%83os_CMYK_color.png" alt="Logo PUCE" width="300"/>
+</p>
+
 # VozSegura
 
 VozSegura es una plataforma web reducida para colegios que permite visualizar denuncias anonimas relacionadas con bullying, acoso u otros problemas escolares. La recepcion de denuncias se preparara para integrarse mas adelante con un chatbot de Telegram; por ahora el proyecto incluye un webhook placeholder y un endpoint interno para registrar denuncias.
@@ -140,3 +144,14 @@ La app esta preparada para ejecutarse como proyecto full-stack en Vercel usando 
 ## Nota sobre Telegram
 
 La integracion con el bot de Telegram no esta implementada todavia. El proyecto deja lista una ruta placeholder para conectar el webhook en una fase posterior sin cambiar la arquitectura principal.
+
+## 👥 Equipo de Trabajo - Roles Scrum
+
+| Integrante | Rol Scrum | Responsabilidad Principal |
+| :--- | :--- | :--- |
+| **Paula Pozo** | Product Owner | Definición de producto y flujos conversacionales. |
+| **Emily Moreno** | Scrum Master | Gestión de agilidad y cumplimiento de cronograma. |
+| **Axel Páliz** | Developer | Desarrollo Backend (NestJS) y arquitectura de datos. |
+| **Israel Hernández** | Developer | Desarrollo Frontend (React) y Dashboard. |
+
+---

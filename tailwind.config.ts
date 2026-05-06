@@ -7,7 +7,7 @@ const config: Config = {
       colors: {
         vozsegura: {
           oscuro: "#140c2e",
-          verde: "#1fa971",
+          verde: "#2ecc71",
           negro: "#0b0b0f",
         },
       },

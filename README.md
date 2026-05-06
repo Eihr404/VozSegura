@@ -154,4 +154,9 @@ La integracion con el bot de Telegram no esta implementada todavia. El proyecto 
 | **Axel Páliz** | Developer | Desarrollo Backend (NestJS) y arquitectura de datos. |
 | **Israel Hernández** | Developer | Desarrollo Frontend (React) y Dashboard. |
 
+## Credenciales de prueba:
+
+**Usuario:** admin
+**Contraseña:** admin123
+
 ---

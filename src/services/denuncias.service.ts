@@ -11,6 +11,8 @@ type ConteoFecha = {
   total: string | number;
 };
 
+//Se podría tomar en cuenta una futura tabla con denuncias ordenadas por prioridad
+//Alta, Baja o Media
 export async function getDenuncias(): Promise<Denuncia[]> {
   try {
     const sql = getSql();

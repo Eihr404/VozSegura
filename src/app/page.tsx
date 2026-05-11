@@ -1,127 +1,92 @@
-import Link from "next/link";
+"use client";
+// src/app/page.tsx
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-import { Navbar } from "@/components/Navbar";
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail]       = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError]       = useState("");
+  const [loading, setLoading]   = useState(false);
 
-const beneficios = [
-  "Canal de reporte discreto para la comunidad educativa.",
-  "Visualizacion clara de tendencias para tomar decisiones rapidas.",
-  "Panel administrativo sencillo y protegido.",
-];
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-const pasos = [
-  "La denuncia se registra de forma anonima desde un canal externo, como Telegram.",
-  "VozSegura centraliza la informacion en una base de datos PostgreSQL segura.",
-  "El equipo administrativo accede a estadisticas y reportes desde un dashboard protegido.",
-];
+    const res = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-export default function HomePage() {
+    const data = await res.json();
+    setLoading(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Error al iniciar sesión");
+      return;
+    }
+
+    router.push("/dashboard");
+  }
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(31,169,113,0.18),_transparent_32%),linear-gradient(135deg,_#0b0b0f_0%,_#140c2e_55%,_#1b1240_100%)] text-white">
-      <Navbar />
+    <main className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-full max-w-sm bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+        <div className="mb-8 text-center">
+          <h1 className="text-2xl font-bold text-slate-800">VozSegura</h1>
+          <p className="text-sm text-slate-500 mt-1">Panel de orientadores</p>
+        </div>
 
-      <section className="mx-auto max-w-6xl px-6 pb-16 pt-16 md:pb-24 md:pt-24">
-        <div className="grid gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <p className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-medium text-emerald-200">
-              Seguridad, confianza y tecnologia para colegios
-            </p>
-            <h1 className="mt-6 max-w-3xl text-4xl font-semibold leading-tight md:text-6xl">
-              VozSegura
-            </h1>
-            <p className="mt-4 max-w-3xl text-2xl leading-relaxed text-slate-200 md:text-3xl">
-              Un canal seguro y anonimo para reportar problemas escolares
-            </p>
-            <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
-              La plataforma permite que las instituciones educativas visualicen denuncias anonimas
-              sobre bullying, acoso y otras situaciones de riesgo con un enfoque claro, privado y
-              accionable.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/login"
-                className="rounded-full bg-emerald-500 px-6 py-3 font-semibold text-slate-950 transition hover:bg-emerald-400"
-              >
-                Ingresar al panel
-              </Link>
-              <a
-                href="#que-es"
-                className="rounded-full border border-white/15 bg-white/5 px-6 py-3 font-semibold text-white transition hover:bg-white/10"
-              >
-                Conocer mas
-              </a>
-            </div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Correo electrónico
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="orientador@colegio.edu.ec"
+            />
           </div>
 
-          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 shadow-2xl shadow-black/20 backdrop-blur-sm">
-            <div className="rounded-[1.5rem] border border-white/10 bg-[#0f172a]/70 p-6">
-              <p className="text-sm uppercase tracking-[0.22em] text-emerald-300">
-                Vista general del sistema
-              </p>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-300">Canal anonimo</p>
-                  <p className="mt-2 text-2xl font-semibold">24/7</p>
-                </div>
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-300">Dashboard protegido</p>
-                  <p className="mt-2 text-2xl font-semibold">JWT + cookies</p>
-                </div>
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-300">Base de datos</p>
-                  <p className="mt-2 text-2xl font-semibold">PostgreSQL</p>
-                </div>
-                <div className="rounded-3xl bg-white/5 p-5">
-                  <p className="text-sm text-slate-300">Despliegue</p>
-                  <p className="mt-2 text-2xl font-semibold">Vercel Ready</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="que-es" className="mx-auto max-w-6xl px-6 py-12 md:py-16">
-        <div className="grid gap-6 rounded-[2rem] border border-white/10 bg-white/5 p-8 backdrop-blur-sm md:grid-cols-2">
           <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-emerald-300">¿Que es VozSegura?</p>
-            <h2 className="mt-4 text-3xl font-semibold">Una herramienta digital para actuar con mas rapidez</h2>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-          <p className="text-base leading-8 text-slate-300">
-            VozSegura centraliza reportes anonimos y permite a los equipos directivos observar
-            patrones, detectar situaciones recurrentes y responder con informacion organizada, sin
-            exponer a quienes reportan.
-          </p>
-        </div>
-      </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
-            <p className="text-sm uppercase tracking-[0.24em] text-emerald-300">¿Como funciona?</p>
-            <h2 className="mt-4 text-3xl font-semibold">Flujo simple y enfocado</h2>
-          </div>
-          {pasos.map((paso, index) => (
-            <article key={paso} className="rounded-[2rem] border border-white/10 bg-white/5 p-8">
-              <p className="text-sm font-semibold text-emerald-300">Paso {index + 1}</p>
-              <p className="mt-4 text-base leading-8 text-slate-300">{paso}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
 
-      <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
-        <div className="rounded-[2rem] border border-white/10 bg-gradient-to-br from-white/5 to-emerald-500/10 p-8">
-          <p className="text-sm uppercase tracking-[0.24em] text-emerald-300">Beneficios</p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {beneficios.map((beneficio) => (
-              <article key={beneficio} className="rounded-3xl border border-white/10 bg-[#0b0b0f]/40 p-6">
-                <p className="text-base leading-8 text-slate-200">{beneficio}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium py-2 rounded-lg text-sm transition-colors"
+          >
+            {loading ? "Ingresando..." : "Ingresar"}
+          </button>
+        </form>
+
+        <p className="text-xs text-slate-400 text-center mt-6">
+          Sistema confidencial — solo personal autorizado
+        </p>
+      </div>
     </main>
   );
 }

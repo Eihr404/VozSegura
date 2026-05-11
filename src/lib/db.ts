@@ -1,32 +1,21 @@
+// src/lib/db.ts
+// Conexión a Nhost PostgreSQL usando postgres.js (ya está en tu proyecto)
+// La URL viene de NHOST_DATABASE_URL en .env.local
+
 import postgres from "postgres";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var __vozseguraSql: ReturnType<typeof postgres> | undefined;
-}
+let sql: ReturnType<typeof postgres> | null = null;
 
 export function getSql() {
-  if (global.__vozseguraSql) {
-    return global.__vozseguraSql;
+  if (!sql) {
+    const url = process.env.NHOST_DATABASE_URL;
+    if (!url) throw new Error("NHOST_DATABASE_URL no está definida en .env.local");
+    sql = postgres(url, {
+      ssl: "require",
+      max: 10,
+      idle_timeout: 20,
+      connect_timeout: 10,
+    });
   }
-
-  const connectionString = process.env.DATABASE_URL;
-
-  if (!connectionString) {
-    throw new Error("DATABASE_URL no esta configurada.");
-  }
-
-  const sql = postgres(connectionString, {
-    ssl: "require",
-    max: 1,
-    idle_timeout: 20,
-    connect_timeout: 10,
-    prepare: false,
-  });
-
-  if (process.env.NODE_ENV !== "production") {
-    global.__vozseguraSql = sql;
-  }
-
   return sql;
 }

@@ -1,103 +1,131 @@
+// src/services/denuncias.service.ts
 import { getSql } from "@/lib/db";
-import type { DashboardStats, Denuncia } from "@/types/denuncia";
 
-type ConteoTipo = {
-  tipo: string;
-  total: string | number;
-};
+export async function getDashboardStats(institucionId: string) {
+  const sql = getSql();
 
-type ConteoFecha = {
-  fecha: string | Date;
-  total: string | number;
-};
+  const [totales] = await sql`
+    SELECT
+      COUNT(*)                                          AS total,
+      COUNT(*) FILTER (WHERE estado = 'nueva')          AS nuevas,
+      COUNT(*) FILTER (WHERE estado = 'en_revision')    AS en_revision,
+      COUNT(*) FILTER (WHERE estado = 'en_intervencion') AS en_intervencion,
+      COUNT(*) FILTER (WHERE estado = 'cerrada')        AS cerradas,
+      COUNT(*) FILTER (WHERE tipo  = 'formal')          AS formales,
+      COUNT(*) FILTER (WHERE tipo  = 'desahogo')        AS desahogos,
+      COUNT(*) FILTER (WHERE prioridad = 1)             AS criticas
+    FROM denuncias
+    WHERE institucion_id = ${institucionId}
+  `;
 
-//Se podría tomar en cuenta una futura tabla con denuncias ordenadas por prioridad
-//Alta, Baja o Media
-export async function getDenuncias(): Promise<Denuncia[]> {
-  try {
-    const sql = getSql();
-    const rows = await sql<Denuncia[]>`
-      SELECT id, usuario_id, fecha::text AS fecha, tipo, descripcion
-      FROM denuncia
-      ORDER BY fecha DESC, id DESC
-    `;
+  const porCategoria = await sql`
+    SELECT c.nombre AS categoria, COUNT(*) AS total
+    FROM   denuncias d
+    JOIN   categorias_incidente c ON d.categoria_id = c.id
+    WHERE  d.institucion_id = ${institucionId}
+    GROUP  BY c.nombre
+    ORDER  BY total DESC
+    LIMIT  8
+  `;
 
-    return rows;
-  } catch {
-    throw new Error("No fue posible consultar las denuncias.");
-  }
+  const recientes = await sql`
+    SELECT d.id, d.tipo, d.estado, d.prioridad, d.fecha_creacion,
+           c.nombre AS categoria, c.gravedad_sugerida
+    FROM   denuncias d
+    JOIN   categorias_incidente c ON d.categoria_id = c.id
+    WHERE  d.institucion_id = ${institucionId}
+    ORDER  BY d.fecha_creacion DESC
+    LIMIT  5
+  `;
+
+  return {
+    totales,
+    porCategoria,
+    recientes,
+  };
 }
 
-export async function createDenuncia(input: {
-  tipo: string;
-  descripcion: string;
-}): Promise<Denuncia> {
-  try {
-    const sql = getSql();
-    const [denuncia] = await sql<Denuncia[]>`
-      INSERT INTO denuncia (usuario_id, tipo, descripcion)
-      VALUES (1, ${input.tipo}, ${input.descripcion})
-      RETURNING id, usuario_id, fecha::text AS fecha, tipo, descripcion
-    `;
+export async function getDenuncias(
+  institucionId: string,
+  filtros: { estado?: string; tipo?: string; prioridad?: string } = {}
+) {
+  const sql = getSql();
 
-    return denuncia;
-  } catch {
-    throw new Error("No fue posible registrar la denuncia.");
-  }
+  const rows = await sql`
+    SELECT d.id, d.tipo, d.estado, d.prioridad, d.score_confiabilidad,
+           d.solicita_seguimiento, d.grado_implicado, d.paralelo_implicado,
+           d.lugar_incidente, d.recurrencia, d.descripcion_hechos,
+           d.fecha_creacion, d.fecha_actualizacion,
+           c.nombre AS categoria, c.gravedad_sugerida,
+           u.nombre_completo AS asignada_a_nombre
+    FROM   denuncias d
+    JOIN   categorias_incidente c ON d.categoria_id = c.id
+    LEFT JOIN usuarios_dashboard u ON d.asignada_a = u.id
+    WHERE  d.institucion_id = ${institucionId}
+      AND  (${filtros.estado ?? null} IS NULL OR d.estado = ${filtros.estado ?? null})
+      AND  (${filtros.tipo   ?? null} IS NULL OR d.tipo   = ${filtros.tipo   ?? null})
+    ORDER  BY d.prioridad ASC, d.fecha_creacion DESC
+    LIMIT  100
+  `;
+
+  return rows;
 }
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  try {
-    const sql = getSql();
-    const [totalRow, hoyRow, tipoMasFrecuenteRow, tiposRows, fechasRows] =
-      await Promise.all([
-        sql<Array<{ total: string | number }>>`
-          SELECT COUNT(*)::int AS total
-          FROM denuncia
-        `,
-        sql<Array<{ total: string | number }>>`
-          SELECT COUNT(*)::int AS total
-          FROM denuncia
-          WHERE fecha = CURRENT_DATE
-        `,
-        sql<Array<{ tipo: string | null }>>`
-          SELECT tipo
-          FROM denuncia
-          GROUP BY tipo
-          ORDER BY COUNT(*) DESC, tipo ASC
-          LIMIT 1
-        `,
-        sql<ConteoTipo[]>`
-          SELECT tipo, COUNT(*)::int AS total
-          FROM denuncia
-          GROUP BY tipo
-          ORDER BY total DESC, tipo ASC
-        `,
-        sql<ConteoFecha[]>`
-          SELECT fecha, COUNT(*)::int AS total
-          FROM denuncia
-          GROUP BY fecha
-          ORDER BY fecha ASC
-        `,
-      ]);
+export async function getDenunciaById(id: string, institucionId: string) {
+  const sql = getSql();
 
-    return {
-      totalDenuncias: Number(totalRow[0]?.total ?? 0),
-      denunciasHoy: Number(hoyRow[0]?.total ?? 0),
-      tipoMasFrecuente: tipoMasFrecuenteRow[0]?.tipo ?? "Sin registros",
-      denunciasPorTipo: tiposRows.map((row) => ({
-        tipo: row.tipo,
-        total: Number(row.total),
-      })),
-      denunciasPorFecha: fechasRows.map((row) => ({
-        fecha:
-          typeof row.fecha === "string"
-            ? row.fecha
-            : row.fecha.toISOString().slice(0, 10),
-        total: Number(row.total),
-      })),
-    };
-  } catch {
-    throw new Error("No fue posible calcular las metricas del dashboard.");
-  }
+  const [denuncia] = await sql`
+    SELECT d.*, c.nombre AS categoria, c.gravedad_sugerida,
+           u.nombre_completo AS asignada_a_nombre
+    FROM   denuncias d
+    JOIN   categorias_incidente c ON d.categoria_id = c.id
+    LEFT JOIN usuarios_dashboard u ON d.asignada_a = u.id
+    WHERE  d.id = ${id}
+      AND  d.institucion_id = ${institucionId}
+  `;
+
+  if (!denuncia) return null;
+
+  const historial = await sql`
+    SELECT h.*, u.nombre_completo AS usuario_nombre
+    FROM   historial_seguimiento h
+    LEFT JOIN usuarios_dashboard u ON h.usuario_id = u.id
+    WHERE  h.denuncia_id = ${id}
+    ORDER  BY h.fecha_registro DESC
+  `;
+
+  return { ...denuncia, historial };
+}
+
+export async function cambiarEstadoDenuncia(
+  id: string,
+  estado: string,
+  usuarioId: string,
+  nota?: string
+) {
+  const sql = getSql();
+
+  await sql`
+    UPDATE denuncias
+    SET estado = ${estado}, fecha_actualizacion = now()
+    WHERE id = ${id}
+  `;
+
+  await sql`
+    INSERT INTO historial_seguimiento (denuncia_id, usuario_id, accion, nota_interna, estado_nuevo)
+    VALUES (${id}, ${usuarioId}, 'cambio_estado', ${nota ?? null}, ${estado})
+  `;
+}
+
+export async function agregarNota(
+  denunciaId: string,
+  usuarioId: string,
+  nota: string
+) {
+  const sql = getSql();
+
+  await sql`
+    INSERT INTO historial_seguimiento (denuncia_id, usuario_id, accion, nota_interna)
+    VALUES (${denunciaId}, ${usuarioId}, 'nota_interna', ${nota})
+  `;
 }

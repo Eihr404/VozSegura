@@ -1,83 +1,45 @@
-import { cookies } from "next/headers";
+// src/lib/auth.ts
 import { SignJWT, jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
+import { cookies } from "next/headers";
+import type { SesionUsuario } from "@/types";
 
-import type { SesionUsuario } from "@/types/usuario";
+const SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET ?? "vozsegura_dev_secret_2024"
+);
+const COOKIE = "vozsegura_session";
 
-const SESSION_COOKIE = "vozsegura_session";
-const SESSION_DURATION_SECONDS = 60 * 60 * 12;
-
-function getSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-
-  if (!secret) {
-    throw new Error("AUTH_SECRET no esta configurado.");
-  }
-
-  return new TextEncoder().encode(secret);
-}
-
-export async function compararContrasena(
-  contrasenaIngresada: string,
-  hashGuardado: string,
-): Promise<boolean> {
-  return bcrypt.compare(contrasenaIngresada, hashGuardado);
-}
-
-export async function crearTokenSesion(usuario: SesionUsuario): Promise<string> {
-  return new SignJWT({
-    sub: String(usuario.id),
-    usuario: usuario.usuario,
-  })
+export async function crearToken(payload: SesionUsuario): Promise<string> {
+  return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(getSecret());
+    .setExpirationTime("8h")
+    .sign(SECRET);
 }
 
-export async function guardarSesionCookie(token: string): Promise<void> {
-  const cookieStore = await cookies();
-
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_DURATION_SECONDS,
-  });
-}
-
-export async function eliminarSesionCookie(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
-}
-
-export async function obtenerSesion(): Promise<SesionUsuario | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-
-  if (!token) {
-    return null;
-  }
-
+export async function verificarToken(token: string): Promise<SesionUsuario | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
-    const usuario = payload.usuario;
-    const sub = payload.sub;
-
-    if (typeof usuario !== "string" || typeof sub !== "string") {
-      return null;
-    }
-
-    return {
-      id: Number(sub),
-      usuario,
-    };
+    const { payload } = await jwtVerify(token, SECRET);
+    return payload as unknown as SesionUsuario;
   } catch {
     return null;
   }
 }
 
-export const authConfig = {
-  sessionCookie: SESSION_COOKIE,
-};
+export async function obtenerSesion(): Promise<SesionUsuario | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE)?.value;
+  if (!token) return null;
+  return verificarToken(token);
+}
+
+export function cookieConfig(token: string) {
+  return {
+    name: COOKIE,
+    value: token,
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax" as const,
+    maxAge: 60 * 60 * 8, // 8 horas
+    path: "/",
+  };
+}

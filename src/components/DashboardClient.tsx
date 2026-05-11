@@ -1,149 +1,199 @@
 "use client";
-
-import { useState } from "react";
+// src/components/DashboardClient.tsx
 import { useRouter } from "next/navigation";
+import type { SesionUsuario } from "@/types";
 
-import { DashboardCard } from "@/components/DashboardCard";
-import { DenunciasCharts } from "@/components/DenunciasCharts";
-import { DenunciasTable } from "@/components/DenunciasTable";
-import { normalizarTexto } from "@/lib/utils";
-import type { DashboardStats, Denuncia } from "@/types/denuncia";
-import type { SesionUsuario } from "@/types/usuario";
-
-type DashboardClientProps = {
-  usuario: SesionUsuario;
-  denuncias: Denuncia[];
-  stats: DashboardStats;
+const PRIORIDAD_COLOR: Record<number, string> = {
+  1: "bg-red-100 text-red-700 border-red-200",
+  2: "bg-orange-100 text-orange-700 border-orange-200",
+  3: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  4: "bg-blue-100 text-blue-700 border-blue-200",
+  5: "bg-slate-100 text-slate-500 border-slate-200",
 };
 
-export function DashboardClient({ usuario, denuncias, stats }: DashboardClientProps) {
+const PRIORIDAD_LABEL: Record<number, string> = {
+  1: "Crítica", 2: "Alta", 3: "Media", 4: "Baja", 5: "Desahogo",
+};
+
+const ESTADO_COLOR: Record<string, string> = {
+  nueva:            "bg-red-50 text-red-600",
+  en_revision:      "bg-yellow-50 text-yellow-700",
+  en_intervencion:  "bg-blue-50 text-blue-700",
+  cerrada:          "bg-green-50 text-green-700",
+  descartada:       "bg-slate-50 text-slate-500",
+};
+
+interface Props {
+  sesion: SesionUsuario;
+  stats: {
+    totales: Record<string, number>;
+    porCategoria: Array<{ categoria: string; total: number }>;
+    recientes: Array<{
+      id: string; tipo: string; estado: string; prioridad: number;
+      fecha_creacion: string; categoria: string; gravedad_sugerida: string;
+    }>;
+  };
+}
+
+export default function DashboardClient({ sesion, stats }: Props) {
   const router = useRouter();
-  const [busqueda, setBusqueda] = useState("");
-  const [tipo, setTipo] = useState("todos");
-  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const { totales, porCategoria, recientes } = stats;
 
-  const tiposDisponibles = Array.from(new Set(denuncias.map((item) => item.tipo))).sort((a, b) =>
-    a.localeCompare(b, "es"),
-  );
-
-  const busquedaNormalizada = normalizarTexto(busqueda);
-
-  const denunciasFiltradas = denuncias.filter((denuncia) => {
-    const coincideDescripcion = normalizarTexto(denuncia.descripcion).includes(
-      busquedaNormalizada,
-    );
-    const coincideTipo = tipo === "todos" ? true : denuncia.tipo === tipo;
-    return coincideDescripcion && coincideTipo;
-  });
-
-  async function cerrarSesion() {
-    setCerrandoSesion(true);
-
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-      });
-      router.push("/login");
-      router.refresh();
-    } finally {
-      setCerrandoSesion(false);
-    }
+  async function logout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/");
   }
 
-  return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(31,169,113,0.16),_transparent_35%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_45%,_#f8fafc_100%)]">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="flex flex-col gap-4 rounded-[2rem] bg-[#140c2e] px-6 py-6 text-white shadow-2xl shadow-[#140c2e]/25 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.28em] text-emerald-300">Panel protegido</p>
-            <h1 className="mt-2 text-3xl font-semibold">VozSegura</h1>
-            <p className="mt-2 text-sm text-slate-300">
-              Bienvenido, {usuario.usuario}. Visualiza y supervisa las denuncias anonimas del colegio.
-            </p>
-          </div>
+  const cards = [
+    { label: "Total denuncias",   value: totales.total ?? 0,          color: "border-l-slate-400" },
+    { label: "Nuevas",            value: totales.nuevas ?? 0,          color: "border-l-red-500" },
+    { label: "En revisión",       value: totales.en_revision ?? 0,     color: "border-l-yellow-500" },
+    { label: "En intervención",   value: totales.en_intervencion ?? 0, color: "border-l-blue-500" },
+    { label: "Cerradas",          value: totales.cerradas ?? 0,        color: "border-l-green-500" },
+    { label: "Críticas",          value: totales.criticas ?? 0,        color: "border-l-red-700" },
+  ];
 
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold text-slate-800">VozSegura</h1>
+          <p className="text-xs text-slate-500">{sesion.institucion_nombre ?? "Panel general"}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-slate-600">{sesion.nombre_completo}</span>
+          <span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{sesion.rol}</span>
           <button
-            type="button"
-            onClick={cerrarSesion}
-            disabled={cerrandoSesion}
-            className="rounded-full border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-70"
+            onClick={logout}
+            className="text-sm text-red-500 hover:text-red-700 transition-colors"
           >
-            {cerrandoSesion ? "Cerrando..." : "Cerrar sesion"}
+            Salir
           </button>
         </div>
+      </header>
 
-        <section className="mt-8 grid gap-4 md:grid-cols-3">
-          <DashboardCard
-            titulo="Total de denuncias"
-            valor={stats.totalDenuncias}
-            descripcion="Cantidad acumulada registrada en la plataforma."
-          />
-          <DashboardCard
-            titulo="Denuncias del dia"
-            valor={stats.denunciasHoy}
-            descripcion="Registros con fecha correspondiente al dia actual."
-          />
-          <DashboardCard
-            titulo="Tipo mas frecuente"
-            valor={stats.tipoMasFrecuente}
-            descripcion="Categoria que concentra el mayor numero de reportes."
-          />
-        </section>
-
-        <section className="mt-8">
-          <DenunciasCharts stats={stats} />
-        </section>
-
-        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-lg shadow-slate-950/5">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-slate-900">Denuncias recientes</h2>
-              <p className="mt-2 text-sm text-slate-500">
-                Usa los filtros para revisar reportes por descripcion o categoria.
-              </p>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="busqueda">
-                  Buscar en descripcion
-                </label>
-                <input
-                  id="busqueda"
-                  type="text"
-                  value={busqueda}
-                  onChange={(event) => setBusqueda(event.target.value)}
-                  placeholder="Ej. recreo, aula, acoso"
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
-                />
+      <main className="max-w-6xl mx-auto px-6 py-8 space-y-8">
+        {/* Cards de métricas */}
+        <section>
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+            Resumen
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {cards.map((c) => (
+              <div
+                key={c.label}
+                className={`bg-white rounded-xl border border-slate-200 border-l-4 ${c.color} p-4`}
+              >
+                <p className="text-2xl font-bold text-slate-800">{c.value}</p>
+                <p className="text-xs text-slate-500 mt-1">{c.label}</p>
               </div>
+            ))}
+          </div>
+        </section>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700" htmlFor="tipo">
-                  Filtrar por tipo
-                </label>
-                <select
-                  id="tipo"
-                  value={tipo}
-                  onChange={(event) => setTipo(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Denuncias recientes */}
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide">
+                Denuncias recientes
+              </h2>
+              <button
+                onClick={() => router.push("/dashboard/denuncias")}
+                className="text-xs text-blue-600 hover:underline"
+              >
+                Ver todas →
+              </button>
+            </div>
+            <div className="space-y-3">
+              {recientes.length === 0 && (
+                <p className="text-sm text-slate-400 bg-white rounded-xl border border-slate-200 p-6 text-center">
+                  No hay denuncias aún
+                </p>
+              )}
+              {recientes.map((d) => (
+                <div
+                  key={d.id}
+                  onClick={() => router.push(`/dashboard/denuncias/${d.id}`)}
+                  className="bg-white rounded-xl border border-slate-200 p-4 cursor-pointer hover:border-blue-300 transition-colors"
                 >
-                  <option value="todos">Todos</option>
-                  {tiposDisponibles.map((tipoDisponible) => (
-                    <option key={tipoDisponible} value={tipoDisponible}>
-                      {tipoDisponible}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${PRIORIDAD_COLOR[d.prioridad] ?? ""}`}>
+                      {PRIORIDAD_LABEL[d.prioridad] ?? d.prioridad}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ESTADO_COLOR[d.estado] ?? ""}`}>
+                      {d.estado.replace("_", " ")}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-slate-700">{d.categoria}</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {new Date(d.fecha_creacion).toLocaleDateString("es-EC", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
+                    {" · "}
+                    {d.tipo === "formal" ? "Formal" : "Desahogo"}
+                  </p>
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
 
-          <div className="mt-6">
-            <DenunciasTable denuncias={denunciasFiltradas} />
+          {/* Por categoría */}
+          <section>
+            <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+              Por categoría
+            </h2>
+            <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-3">
+              {porCategoria.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-4">Sin datos aún</p>
+              )}
+              {porCategoria.map((c) => {
+                const max = porCategoria[0]?.total ?? 1;
+                const pct = Math.round((Number(c.total) / Number(max)) * 100);
+                return (
+                  <div key={c.categoria}>
+                    <div className="flex justify-between text-xs text-slate-600 mb-1">
+                      <span>{c.categoria}</span>
+                      <span className="font-medium">{c.total}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 rounded-full transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        {/* Nav rápida a otras secciones */}
+        <section>
+          <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-4">
+            Módulos
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: "Denuncias",   href: "/dashboard/denuncias",  emoji: "📋" },
+              { label: "Implicados",  href: "/dashboard/implicados", emoji: "👤" },
+              { label: "Acciones",    href: "/dashboard/acciones",   emoji: "✅" },
+              { label: "Análisis IA", href: "/dashboard/ia",         emoji: "🤖" },
+            ].map((m) => (
+              <button
+                key={m.href}
+                onClick={() => router.push(m.href)}
+                className="bg-white border border-slate-200 rounded-xl p-5 text-left hover:border-blue-300 hover:shadow-sm transition-all"
+              >
+                <span className="text-2xl">{m.emoji}</span>
+                <p className="text-sm font-medium text-slate-700 mt-2">{m.label}</p>
+              </button>
+            ))}
           </div>
         </section>
-      </div>
+      </main>
     </div>
   );
 }

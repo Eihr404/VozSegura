@@ -1,7 +1,14 @@
 // src/lib/auth.ts
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import type { SesionUsuario } from "@/types";
+interface SesionUsuario {
+  id: string;
+  email: string;
+  nombre_completo: string;
+  rol: string;
+  institucion_id: string | null;
+  institucion_nombre?: string;
+}
 
 const SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "vozsegura_dev_secret_2024"
